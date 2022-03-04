@@ -1,5 +1,7 @@
+use cw_utils::{Expiration, Scheduled};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use crate::state::Claim;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -9,8 +11,12 @@ pub struct InstantiateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    Increment {},
-    Reset { count: i32 },
+    CreateLockbox {
+        owner: String,
+        claims: Vec<Claim>,
+        expiration: Scheduled,
+    },
+    Reset {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
