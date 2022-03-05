@@ -20,7 +20,8 @@ pub struct Lockbox {
     pub owner: Addr,
     pub claims: Vec<Claim>,
     pub expiration: Scheduled,
-    pub total_amount: Uint128
+    pub total_amount: Uint128,
+    pub reset: bool
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -1,3 +1,4 @@
+use cosmwasm_std::{Addr, Uint128, Uint64};
 use cw_utils::{Expiration, Scheduled};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -22,12 +23,16 @@ pub enum ExecuteMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    // GetCount returns the current count as a json-encoded number
-    GetCount {},
+    GetLockBox {id: Uint64},
 }
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct CountResponse {
-    pub count: i32,
+pub struct LockBoxResponse {
+    pub id: Uint64,
+    pub owner: Addr,
+    pub claims: Vec<Claim>,
+    pub expiration: Scheduled,
+    pub total_amount: Uint128,
+    pub reset: bool
 }

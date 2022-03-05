@@ -8,7 +8,7 @@ use serde::de::StdError;
 use crate::ContractError::LockBoxExpired;
 
 use crate::error::ContractError;
-use crate::msg::{CountResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Claim, Config, CONFIG, LOCK_BOX_SEQ, Lockbox, LOCKBOXES};
 
 // version info for migration info
@@ -78,7 +78,8 @@ pub fn execute_create_lockbox(
         owner,
         claims,
         expiration,
-        total_amount
+        total_amount,
+        reset: false,
     };
     LOCKBOXES.save(deps.storage,id.u64(),&lockbox);
 
@@ -99,19 +100,25 @@ pub fn try_reset(deps: DepsMut, info: MessageInfo, count: i32) -> Result<Respons
 }
 */
 
-/*
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetCount {} => to_binary(&query_count(deps)?),
+        QueryMsg::GetLockBox { id } => to_binary(&query_lockbox(deps, id)?),
     }
 }
 
-fn query_count(deps: Deps) -> StdResult<CountResponse> {
-    let state = CONFIG.load(deps.storage)?;
-    Ok(CountResponse { count: state.count })
+fn query_lockbox(deps: Deps, id: Uint64) -> StdResult<LockBoxResponse> {
+    let lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    Ok(LockBoxResponse {
+        id: lockbox.id,
+        owner: lockbox.owner,
+        claims: lockbox.claims,
+        expiration: lockbox.expiration,
+        total_amount: lockbox.total_amount,
+        reset: lockbox.reset })
 }
-*/
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,13 +160,25 @@ mod tests {
 
         let msg = ExecuteMsg::CreateLockbox {
             owner: "OWNER".to_string(),
-            claims,
+            claims: claims.clone(),
             expiration: Scheduled::AtHeight(64)
         };
 
         ///mock_env().block.height = 12_345
-        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
-        assert_eq!(ContractError::LockBoxExpired {},err)
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
+        assert_eq!(ContractError::LockBoxExpired {},err);
+
+        let msg = ExecuteMsg::CreateLockbox {
+            owner: "OWNER".to_string(),
+            claims: claims.clone(),
+            expiration: Scheduled::AtHeight(1_000_000)
+        };
+        execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let res = query_lockbox(deps.as_ref(), Uint64::new(1)).unwrap();
+        println!("{:?}", res);
+        assert_eq!(res.id, Uint64::new(1));
+
+        //assert_eq!(ContractError::LockBoxExpired {},err)
     }
 /*
     #[test]
