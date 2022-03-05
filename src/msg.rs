@@ -36,3 +36,9 @@ pub struct LockBoxResponse {
     pub total_amount: Uint128,
     pub reset: bool
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct LockBoxListResponse {
+    pub lockboxes: Vec<LockBoxResponse>,
+
+}

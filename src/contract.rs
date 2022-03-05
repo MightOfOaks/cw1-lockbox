@@ -1,14 +1,15 @@
 use std::ops::Add;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, Uint128, Uint64, OverflowError};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, Uint128, Uint64, OverflowError, Order};
 use cw2::set_contract_version;
 use cw_utils::Scheduled;
+use cw_storage_plus::Bound;
 use serde::de::StdError;
 use crate::ContractError::LockBoxExpired;
 
 use crate::error::ContractError;
-use crate::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg, LockBoxListResponse};
 use crate::state::{Claim, Config, CONFIG, LOCK_BOX_SEQ, Lockbox, LOCKBOXES};
 
 // version info for migration info
@@ -117,6 +118,26 @@ fn query_lockbox(deps: Deps, id: Uint64) -> StdResult<LockBoxResponse> {
         expiration: lockbox.expiration,
         total_amount: lockbox.total_amount,
         reset: lockbox.reset })
+}
+// settings for pagination
+const MAX_LIMIT: u32 = 30;
+const DEFAULT_LIMIT: u32 = 10;
+
+fn range_lockbox(deps: Deps,
+                 start_after: Option<u64>,
+                 limit: Option<u32>,
+                ) -> StdResult<LockBoxListResponse> {
+
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = start_after.map(Bound::exclusive);
+    let lockboxes: StdResult<Vec<_>> = LOCKBOXES
+        .range(deps.storage, start, None, Order::Ascending)
+        .take(limit)
+        .collect();
+    let res = LockBoxListResponse{
+        lockboxes: lockboxes?.into_iter().map(|l|l.1).collect(),
+    };
+    Ok(res)
 }
 
 #[cfg(test)]
