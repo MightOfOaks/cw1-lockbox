@@ -13,8 +13,17 @@ pub enum ContractError {
     #[error("LockBox expired")]
     LockBoxExpired {},
 
+    #[error("LockBox not expired")]
+    LockBoxNotExpired {},
+
     #[error("Native tokens required")]
     NativeTokensRequired {},
+
+    #[error("Insufficient Funds")]
+    InsufficientFunds {},
+
+    #[error("LockBox has been reset")]
+    LockBoxReset {},
 
     #[error("Denom not supported")]
     DenomNotSupported {},

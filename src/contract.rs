@@ -2,9 +2,10 @@ use std::num::FpCategory::Nan;
 use std::ops::Add;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, Uint128, Uint64, OverflowError, Order, Coin, from_slice};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, Uint128, Uint64, OverflowError, Order, Coin, from_slice, CosmosMsg, BankMsg, WasmMsg};
+use cosmwasm_std::CosmosMsg::Bank;
 use cw2::set_contract_version;
-use cw20::Cw20ReceiveMsg;
+use cw20::{Cw20Contract, Cw20ExecuteMsg, Cw20ReceiveMsg};
 use cw_utils::{NativeBalance, Scheduled};
 use cw_storage_plus::Bound;
 use serde::de::StdError;
@@ -55,7 +56,7 @@ pub fn execute(
         ExecuteMsg::Deposit { id } => execute_deposit_native(deps, _env, info, id),
         //This accepts a properly-encoded ReceiveMsg from a CW20 contract
         ExecuteMsg::Receive(Cw20ReceiveMsg) => execute_receive(deps, _env, info,Cw20ReceiveMsg),
-
+        ExecuteMsg::Claim { id } => execute_claim(deps,_env,info,id),
     }
 }
 pub fn execute_create_lockbox(
@@ -151,16 +152,61 @@ pub fn execute_deposit(
     amount: Uint128,
 ) -> Result<Response, ContractError> {
     let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
-    let cw20_addr = lockbox.cw20_addr.ok_or((ContractError::DenomNotSupported {}))?;
+    let cw20_addr = lockbox.clone().cw20_addr.ok_or((ContractError::DenomNotSupported {}))?;
     if info.sender != cw20_addr{
         return Err(ContractError::Unauthorized {});
     }
-    lockbox.total_amount.checked_sub(amount)?;
+    lockbox.total_amount.checked_sub(amount).unwrap();
     LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
 
     Ok(Response::default()
         .add_attribute("action","execute_deposit")
         .add_attribute("amount", amount))
+}
+
+pub fn execute_claim(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    id: Uint64,
+) -> Result<Response, ContractError> {
+    let lockbox= LOCKBOXES.load(deps.storage, id.u64())?;
+    if lockbox.reset {
+        return Err(ContractError::LockBoxReset {})
+    }
+    if !lockbox.expiration.is_triggered(&env.block){
+        return Err(ContractError::LockBoxNotExpired {})
+    }
+    let claim = lockbox.claims
+        .into_iter()
+        .find(|c| c.addr == info.sender.to_string())
+        .ok_or(ContractError::Unauthorized {})?;
+
+    let msg: CosmosMsg = match(lockbox.cw20_addr, lockbox.native_denom){
+        (Some(_), Some(_)) => Err(ContractError::Unauthorized {}),
+        (None, None) => Err(ContractError::Unauthorized {}),
+        (Some(cw20_addr), None) => {
+            /*
+            let balance = Cw20Contract(cw20_addr).balance(&deps.querier, env.contract.address)?;
+            if balance < claim.amount{
+                return Err(ContractError::InsufficientFunds {})
+            }
+            */
+            let message = Cw20ExecuteMsg::Transfer { recipient: claim.addr, amount: claim.amount };
+            Cw20Contract(cw20_addr).call(message).map_err(ContractError::Std)
+        },
+        (None, Some(native)) => {
+            let balance = deps.querier.query_balance(env.contract.address, native.clone())?;
+            if balance.amount < claim.amount{
+                return Err(ContractError::InsufficientFunds {})
+            }
+            let message = BankMsg::Send { to_address: claim.addr, amount: vec![Coin{ denom: native, amount: claim.amount }] };
+            Ok(CosmosMsg::Bank(message))
+        }
+    }?;
+
+    let res = Response::new().add_message(msg);
+   Ok(res)
 }
 
 /*

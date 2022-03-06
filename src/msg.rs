@@ -23,6 +23,7 @@ pub enum ExecuteMsg {
     Reset {},
     Deposit{id: Uint64},
     Receive(Cw20ReceiveMsg),
+    Claim{id: Uint64},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
