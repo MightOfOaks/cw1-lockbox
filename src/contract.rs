@@ -1,15 +1,17 @@
+use std::num::FpCategory::Nan;
 use std::ops::Add;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, Uint128, Uint64, OverflowError, Order};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, Uint128, Uint64, OverflowError, Order, Coin, from_slice};
 use cw2::set_contract_version;
-use cw_utils::Scheduled;
+use cw20::Cw20ReceiveMsg;
+use cw_utils::{NativeBalance, Scheduled};
 use cw_storage_plus::Bound;
 use serde::de::StdError;
 use crate::ContractError::LockBoxExpired;
 
 use crate::error::ContractError;
-use crate::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg, LockBoxListResponse};
+use crate::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg, LockBoxListResponse, ReceiveMsg};
 use crate::state::{Claim, Config, CONFIG, LOCK_BOX_SEQ, Lockbox, LOCKBOXES};
 
 // version info for migration info
@@ -46,8 +48,14 @@ pub fn execute(
             owner,
             claims,
             expiration,
-        } => execute_create_lockbox(deps, _env, info, owner, claims, expiration),
+            native_token,
+            cw20_addr
+        } => execute_create_lockbox(deps, _env, info, owner, claims, expiration, native_token, cw20_addr),
         ExecuteMsg::Reset {} => unimplemented!(),
+        ExecuteMsg::Deposit { id } => execute_deposit_native(deps, _env, info, id),
+        //This accepts a properly-encoded ReceiveMsg from a CW20 contract
+        ExecuteMsg::Receive(Cw20ReceiveMsg) => execute_receive(deps, _env, info,Cw20ReceiveMsg),
+
     }
 }
 pub fn execute_create_lockbox(
@@ -57,6 +65,8 @@ pub fn execute_create_lockbox(
     owner: String,
     claims: Vec<Claim>,
     expiration: Scheduled,
+    native_token: Option<String>,
+    cw20_addr: Option<String>
 ) -> Result<Response, ContractError> {
 
     let owner = deps.api.addr_validate(&owner)?;
@@ -64,6 +74,11 @@ pub fn execute_create_lockbox(
         return Err(ContractError::LockBoxExpired {});
     }
 
+    match(native_token.clone(), cw20_addr){
+        (Some(_), Some(_)) => Err(ContractError::DenomNotSupported {}),
+        (None, None) => Err(ContractError::DenomNotSupported {}),
+        (_,_) => Ok(())
+    };
     /*
     let mut total_amount = Uint128::zero();
     for c in claims {
@@ -81,11 +96,71 @@ pub fn execute_create_lockbox(
         expiration,
         total_amount,
         reset: false,
+        native_denom: native_token,
+        cw20_addr: None
     };
     LOCKBOXES.save(deps.storage,id.u64(),&lockbox);
-
     Ok(Response::new().add_attribute("method","execute_create_lockbox"))
+}
 
+pub fn execute_deposit_native(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    id: Uint64,
+) -> Result<Response, ContractError> {
+    let mut lockbox = LOCKBOXES.load(deps.storage,id.u64())?;
+    if lockbox.expiration.is_triggered(&env.block){
+        return Err(ContractError::LockBoxExpired {});
+    }
+
+    let denom = lockbox.clone().native_denom.ok_or(ContractError::NativeTokensRequired {})?;
+
+    let coin: &Coin = info.funds
+        .iter()
+        .find(|c| c.denom == denom)
+        .ok_or(ContractError::DenomNotSupported {})?;
+
+    lockbox.total_amount -= coin.amount;
+    LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
+
+    Ok(Response::default()
+            .add_attribute("action","execute_deposit")
+            .add_attribute("amount", coin.amount.to_string()))
+}
+
+pub fn execute_receive(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    wrapper: Cw20ReceiveMsg,
+) -> Result<Response, ContractError> {
+
+    let msg: ReceiveMsg = from_slice(&wrapper.msg)?;
+    let amount = wrapper.amount;
+    match msg{
+        ReceiveMsg::Deposit {id} => execute_deposit(deps, env, info, id, amount),
+    }
+}
+
+pub fn execute_deposit(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    id: Uint64,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    let cw20_addr = lockbox.cw20_addr.ok_or((ContractError::DenomNotSupported {}))?;
+    if info.sender != cw20_addr{
+        return Err(ContractError::Unauthorized {});
+    }
+    lockbox.total_amount.checked_sub(amount)?;
+    LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
+
+    Ok(Response::default()
+        .add_attribute("action","execute_deposit")
+        .add_attribute("amount", amount))
 }
 
 /*
@@ -117,7 +192,9 @@ fn query_lockbox(deps: Deps, id: Uint64) -> StdResult<LockBoxResponse> {
         claims: lockbox.claims,
         expiration: lockbox.expiration,
         total_amount: lockbox.total_amount,
-        reset: lockbox.reset })
+        reset: lockbox.reset,
+        native_denom: lockbox.native_denom,
+    })
 }
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
@@ -135,7 +212,7 @@ fn range_lockbox(deps: Deps,
         .take(limit)
         .collect();
     let res = LockBoxListResponse{
-        lockboxes: lockboxes?.into_iter().map(|l|l.1).collect(),
+        lockboxes: lockboxes?.into_iter().map(|l|l.1.into()).collect(),
     };
     Ok(res)
 }
@@ -182,7 +259,9 @@ mod tests {
         let msg = ExecuteMsg::CreateLockbox {
             owner: "OWNER".to_string(),
             claims: claims.clone(),
-            expiration: Scheduled::AtHeight(64)
+            expiration: Scheduled::AtHeight(64),
+            native_token: None,
+            cw20_addr: None
         };
 
         ///mock_env().block.height = 12_345
@@ -192,7 +271,10 @@ mod tests {
         let msg = ExecuteMsg::CreateLockbox {
             owner: "OWNER".to_string(),
             claims: claims.clone(),
-            expiration: Scheduled::AtHeight(1_000_000)
+            expiration: Scheduled::AtHeight(1_000_000),
+            native_token:None,
+            cw20_addr:None,
+
         };
         execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         let res = query_lockbox(deps.as_ref(), Uint64::new(1)).unwrap();

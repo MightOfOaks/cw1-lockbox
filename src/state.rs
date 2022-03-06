@@ -21,7 +21,9 @@ pub struct Lockbox {
     pub claims: Vec<Claim>,
     pub expiration: Scheduled,
     pub total_amount: Uint128,
-    pub reset: bool
+    pub reset: bool,
+    pub native_denom: Option<String>,
+    pub cw20_addr: Option<Addr>
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

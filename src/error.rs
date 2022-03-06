@@ -12,4 +12,14 @@ pub enum ContractError {
     // Look at https://docs.rs/thiserror/1.0.21/thiserror/ for details.
     #[error("LockBox expired")]
     LockBoxExpired {},
+
+    #[error("Native tokens required")]
+    NativeTokensRequired {},
+
+    #[error("Denom not supported")]
+    DenomNotSupported {},
+
+    //#[error("Denom not supported:{0}, please send {1}")]
+    //DenomNotSupported {sent: String, need: String},
+    //Err(ContractError::DenomNotSupported {sent:"", need: denom})
 }
