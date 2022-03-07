@@ -4,7 +4,7 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use cw1_new_lockbox::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw1_new_lockbox::state::Config;
+use cw1_new_lockbox::state::{Config, Lockbox};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -17,4 +17,5 @@ fn main() {
     export_schema(&schema_for!(QueryMsg), &out_dir);
     export_schema(&schema_for!(Config), &out_dir);
     export_schema(&schema_for!(LockBoxResponse), &out_dir);
+    export_schema(&schema_for!(Lockbox), &out_dir);
 }

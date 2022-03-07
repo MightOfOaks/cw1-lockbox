@@ -1,0 +1,1 @@
+f72d42fc77ac2bdfe0a6df1488880353246aa8d8af98e392e834c5551bff7be1  ./target/wasm32-unknown-unknown/release/cw1_new_lockbox.wasm
