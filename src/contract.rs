@@ -67,7 +67,7 @@ pub fn execute_create_lockbox(
     claims: Vec<Claim>,
     expiration: Scheduled,
     native_token: Option<String>,
-    cw20_addr: Option<String>
+    cw20_addr: Option<Addr>
 ) -> Result<Response, ContractError> {
 
     let owner = deps.api.addr_validate(&owner)?;
@@ -75,7 +75,7 @@ pub fn execute_create_lockbox(
         return Err(ContractError::LockBoxExpired {});
     }
 
-    match(native_token.clone(), cw20_addr){
+    match(native_token.clone(), cw20_addr.clone()){
         (Some(_), Some(_)) => Err(ContractError::DenomNotSupported {}),
         (None, None) => Err(ContractError::DenomNotSupported {}),
         (_,_) => Ok(())
@@ -98,7 +98,7 @@ pub fn execute_create_lockbox(
         total_amount,
         reset: false,
         native_denom: native_token,
-        cw20_addr: None
+        cw20_addr,
     };
     LOCKBOXES.save(deps.storage,id.u64(),&lockbox);
     Ok(Response::new().add_attribute("method","execute_create_lockbox"))
@@ -227,6 +227,7 @@ pub fn try_reset(deps: DepsMut, info: MessageInfo, count: i32) -> Result<Respons
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetLockBox { id } => to_binary(&query_lockbox(deps, id)?),
+        QueryMsg::ListLockBoxes { start_after, limit } => to_binary(&range_lockbox(deps, start_after, limit)?),
     }
 }
 
@@ -240,6 +241,7 @@ fn query_lockbox(deps: Deps, id: Uint64) -> StdResult<LockBoxResponse> {
         total_amount: lockbox.total_amount,
         reset: lockbox.reset,
         native_denom: lockbox.native_denom,
+        cw20_addr: lockbox.cw20_addr,
     })
 }
 // settings for pagination

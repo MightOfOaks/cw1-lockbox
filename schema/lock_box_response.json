@@ -17,6 +17,16 @@
         "$ref": "#/definitions/Claim"
       }
     },
+    "cw20_addr": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Addr"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "expiration": {
       "$ref": "#/definitions/Scheduled"
     },

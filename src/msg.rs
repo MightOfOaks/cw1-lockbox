@@ -18,7 +18,7 @@ pub enum ExecuteMsg {
         claims: Vec<Claim>,
         expiration: Scheduled,
         native_token: Option<String>,
-        cw20_addr: Option<String>
+        cw20_addr: Option<Addr>
     },
     Reset {},
     Deposit{id: Uint64},
@@ -36,6 +36,7 @@ pub enum ReceiveMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetLockBox {id: Uint64},
+    ListLockBoxes {start_after: Option<u64>, limit: Option<u32>}
 }
 
 // We define a custom struct for each query response
@@ -47,7 +48,8 @@ pub struct LockBoxResponse {
     pub expiration: Scheduled,
     pub total_amount: Uint128,
     pub reset: bool,
-    pub native_denom:Option<String>
+    pub native_denom:Option<String>,
+    pub cw20_addr: Option<Addr>
 }
 impl Into<LockBoxResponse> for Lockbox{
     fn into(self) -> LockBoxResponse {
@@ -58,7 +60,8 @@ impl Into<LockBoxResponse> for Lockbox{
             expiration: self.expiration,
             total_amount: self.total_amount,
             reset: self.reset,
-            native_denom: self.native_denom
+            native_denom: self.native_denom,
+            cw20_addr: self.cw20_addr
         }
     }
 }
