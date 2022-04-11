@@ -17,7 +17,7 @@ pub enum ExecuteMsg {
         cw20_addr: Option<Addr>
     },
 
-    Reset {},
+    Reset {id: Uint64},
 
     Deposit{id: Uint64},
 
