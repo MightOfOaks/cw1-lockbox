@@ -52,13 +52,29 @@ pub fn execute(
             native_token,
             cw20_addr
         } => execute_create_lockbox(deps, _env, info, owner, claims, expiration, native_token, cw20_addr),
-        ExecuteMsg::Reset {} => unimplemented!(),
+        ExecuteMsg::Reset {id} => execute_reset_lockbox(deps, _env, id),
         ExecuteMsg::Deposit { id } => execute_deposit_native(deps, _env, info, id),
         //This accepts a properly-encoded ReceiveMsg from a CW20 contract
         ExecuteMsg::Receive(Cw20ReceiveMsg) => execute_receive(deps, _env, info,Cw20ReceiveMsg),
         ExecuteMsg::Claim { id } => execute_claim(deps,_env,info,id),
     }
 }
+pub fn execute_reset_lockbox(
+    deps: DepsMut,
+    env: Env,
+    id: Uint64,
+) -> Result<Response, ContractError> {
+    let mut lockbox = LOCKBOXES.load(deps.storage,id.u64())?;
+    if lockbox.expiration.is_triggered(&env.block){
+        return Err(ContractError::LockBoxExpired {});
+    }
+    let owner = deps.api.addr_validate(&lockbox.owner.to_string())?;
+    lockbox.reset = true;
+    LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
+    Ok(Default::default())
+}
+
+
 pub fn execute_create_lockbox(
     deps: DepsMut,
     env: Env,

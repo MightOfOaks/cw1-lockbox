@@ -20,7 +20,7 @@ pub enum ExecuteMsg {
         native_token: Option<String>,
         cw20_addr: Option<Addr>
     },
-    Reset {},
+    Reset {id: Uint64},
     Deposit{id: Uint64},
     Receive(Cw20ReceiveMsg),
     Claim{id: Uint64},
