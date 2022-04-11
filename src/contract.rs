@@ -16,7 +16,7 @@ use crate::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg, LockBoxL
 use crate::state::{Claim, Config, CONFIG, LOCK_BOX_SEQ, Lockbox, LOCKBOXES};
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:cw1-new-lockbox";
+const CONTRACT_NAME: &str = "crates.io:cw1-lockbox";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

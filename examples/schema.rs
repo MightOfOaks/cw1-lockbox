@@ -3,8 +3,8 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use cw1_new_lockbox::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw1_new_lockbox::state::{Config, Lockbox};
+use cw1_lockbox::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use cw1_lockbox::state::{Config, Lockbox};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();

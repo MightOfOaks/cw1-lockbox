@@ -1,5 +1,5 @@
 [package]
-name = "cw1-new-lockbox"
+name = "cw1-lockbox"
 version = "0.1.0"
 authors = ["Serkan Reis <serkanreis@gmail.com>"]
 edition = "2018"
