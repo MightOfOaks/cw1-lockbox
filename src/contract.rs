@@ -1,5 +1,5 @@
 use std::num::FpCategory::Nan;
-use std::ops::Add;
+use std::ops::{Add, Sub};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Addr, Uint128, Uint64, OverflowError, Order, Coin, from_slice, CosmosMsg, BankMsg, WasmMsg};
@@ -78,9 +78,9 @@ pub fn execute_reset_lockbox(
     let mut paybackAmount: Uint128 = Uint128::zero();
     let claims_iter = lockbox.claims.iter();
     for claim in claims_iter {
-        paybackAmount.add(Uint128::new(u128::from(claim.amount)));
+        paybackAmount = paybackAmount.add(Uint128::new(u128::from(claim.amount)));
     }
-    paybackAmount = paybackAmount - lockbox.total_amount;
+    paybackAmount = paybackAmount.sub(lockbox.total_amount);
     //Pay back the amount to the owner
     let msg: CosmosMsg = match(lockbox.cw20_addr, lockbox.native_denom){
         (Some(_), Some(_)) => Err(ContractError::Unauthorized {}),
@@ -359,7 +359,7 @@ mod tests {
         let msg = ExecuteMsg::CreateLockbox {
             owner: "OWNER".to_string(),
             claims: claims.clone(),
-            expiration: Scheduled::AtHeight(1_000_000),
+            expiration: Scheduled::AtHeight(3_000_000),
             native_token:None,
             cw20_addr:None,
 
@@ -368,6 +368,8 @@ mod tests {
         let res = query_lockbox(deps.as_ref(), Uint64::new(1)).unwrap();
         println!("{:?}", res);
         assert_eq!(res.id, Uint64::new(1));
+
+        execute_reset_lockbox(deps.as_mut(), mock_env(), Uint64::new(1));
 
         //assert_eq!(ContractError::LockBoxExpired {},err)
     }
