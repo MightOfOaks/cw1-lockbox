@@ -64,6 +64,7 @@ pub fn execute_reset_lockbox(
     env: Env,
     id: Uint64,
 ) -> Result<Response, ContractError> {
+    //Set lockbox reset to true
     let mut lockbox = LOCKBOXES.load(deps.storage,id.u64())?;
     if lockbox.expiration.is_triggered(&env.block){
         return Err(ContractError::LockBoxExpired {});
@@ -71,7 +72,30 @@ pub fn execute_reset_lockbox(
     let owner = deps.api.addr_validate(&lockbox.owner.to_string())?;
     lockbox.reset = true;
     LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
-    Ok(Default::default())
+
+    //Giving back tokens to owner
+    //Get the amount to pay back
+    let mut paybackAmount: Uint128 = Uint128::zero();
+    let claims_iter = lockbox.claims.iter();
+    for claim in claims_iter {
+        paybackAmount.add(Uint128::new(u128::from(claim.amount)));
+    }
+    paybackAmount = paybackAmount - lockbox.total_amount;
+    //Pay back the amount to the owner
+    let msg: CosmosMsg = match(lockbox.cw20_addr, lockbox.native_denom){
+        (Some(_), Some(_)) => Err(ContractError::Unauthorized {}),
+        (None, None) => Err(ContractError::Unauthorized {}),
+        (Some(cw20_addr), None) => {
+            let message = Cw20ExecuteMsg::Transfer { recipient: lockbox.owner.to_string(), amount: paybackAmount };
+            Cw20Contract(cw20_addr).call(message).map_err(ContractError::Std)
+        },
+        (None, Some(native)) => {
+            let message = BankMsg::Send { to_address: lockbox.owner.to_string(), amount: vec![Coin{ denom: native, amount: paybackAmount }] };
+            Ok(CosmosMsg::Bank(message))
+        }
+    }?;
+    let res = Response::new().add_message(msg);
+    Ok(res)
 }
 
 
