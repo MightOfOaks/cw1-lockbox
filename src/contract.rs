@@ -217,6 +217,9 @@ pub fn execute_claim(
     if !lockbox.expiration.is_triggered(&env.block){
         return Err(ContractError::LockBoxNotExpired {})
     }
+    if lockbox.totalAmount != 0 {
+        return Err(ContractError::NotEnoughTokenDeposited {});
+    }
     let claim = lockbox.claims
         .into_iter()
         .find(|c| c.addr == info.sender.to_string())
