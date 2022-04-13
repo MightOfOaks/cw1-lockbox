@@ -104,10 +104,14 @@ pub fn execute_create_lockbox(
 ) -> Result<Response, ContractError> {
 
     let owner = deps.api.addr_validate(&owner)?;
-    let cw20_address = deps.api.addr_validate(&cw20_addr.clone().unwrap()).ok();
+    let cw20_address = match cw20_addr.clone() {
+        Some(cw20_addr) => deps.api.addr_validate(&cw20_addr).ok(),
+        _ => None,
+    };
     if expiration.is_triggered(&env.block){
         return Err(ContractError::LockBoxExpired {});
     }
+
 
     match(native_token.clone(), cw20_addr.clone()){
         (Some(_), Some(_)) => Err(ContractError::DenomNotSupported {}),

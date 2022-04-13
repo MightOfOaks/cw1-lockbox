@@ -62,7 +62,7 @@
       ],
       "properties": {
         "addr": {
-          "type": "string"
+          "$ref": "#/definitions/Addr"
         },
         "amount": {
           "$ref": "#/definitions/Uint128"

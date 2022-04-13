@@ -23,13 +23,9 @@
               }
             },
             "cw20_addr": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Addr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "expiration": {
@@ -139,7 +135,7 @@
       ],
       "properties": {
         "addr": {
-          "type": "string"
+          "$ref": "#/definitions/Addr"
         },
         "amount": {
           "$ref": "#/definitions/Uint128"
