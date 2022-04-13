@@ -62,6 +62,9 @@ pub fn execute_reset_lockbox(
     if lockbox.expiration.is_triggered(&env.block){
         return Err(ContractError::LockBoxExpired {});
     }
+    if lockbox.reset {
+        return Err(ContractError::LockBoxReset {});
+    }
 
     lockbox.reset = true;
     LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
@@ -158,6 +161,9 @@ pub fn execute_deposit_native(
     if lockbox.expiration.is_triggered(&env.block){
         return Err(ContractError::LockBoxExpired {});
     }
+    if lockbox.reset {
+        return Err(ContractError::LockBoxReset {});
+    }
 
     let denom = lockbox.clone().native_denom.ok_or(ContractError::NativeTokensRequired {})?;
 
@@ -196,6 +202,14 @@ pub fn execute_deposit(
     amount: Uint128,
 ) -> Result<Response, ContractError> {
     let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+
+    if lockbox.expiration.is_triggered(&_env.block){
+        return Err(ContractError::LockBoxExpired {});
+    }
+    if lockbox.reset {
+        return Err(ContractError::LockBoxReset {});
+    }
+
     let cw20_addr = lockbox.clone().cw20_addr.ok_or(ContractError::DenomNotSupported {})?;
     if info.sender != cw20_addr{
         return Err(ContractError::Unauthorized {});

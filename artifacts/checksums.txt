@@ -1,1 +1,1 @@
-8e0fceaeed3419c442399c98d7614de7b97272108bf7bdd2c85d2d896b8a11b3  cw1_lockbox.wasm
+b6246a3b0637d5a7ec83f801bae3687609fe42f9d4de6024eab4d96ace0b972f  cw1_lockbox.wasm
