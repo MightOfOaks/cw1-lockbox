@@ -1,13 +1,12 @@
 use cosmwasm_std::{Addr, Uint128, Uint64};
 use cw20::Cw20ReceiveMsg;
-use cw_utils::{Expiration, Scheduled};
+use cw_utils::{Scheduled};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use crate::state::{Claim, Lockbox};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
-    pub admin: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -18,7 +17,7 @@ pub enum ExecuteMsg {
         claims: Vec<Claim>,
         expiration: Scheduled,
         native_token: Option<String>,
-        cw20_addr: Option<Addr>
+        cw20_addr: Option<String>
     },
     Reset {id: Uint64},
     Deposit{id: Uint64},

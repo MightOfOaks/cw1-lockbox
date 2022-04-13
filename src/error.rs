@@ -28,8 +28,8 @@ pub enum ContractError {
     #[error("Denom not supported")]
     DenomNotSupported {},
 
-    #[error("Not enough token has been deposited")]
-    NotEnoughTokenDeposited
+    #[error("The deposited amount does not cover the claims")]
+    DepositClaimImbalance {}
 
     //#[error("Denom not supported:{0}, please send {1}")]
     //DenomNotSupported {sent: String, need: String},

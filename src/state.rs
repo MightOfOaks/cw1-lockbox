@@ -5,13 +5,6 @@ use cosmwasm_std::{Addr, Uint128, Uint64};
 use cw_storage_plus::{Item, Map};
 use cw_utils::Scheduled;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Config {
-
-}
-
-pub const CONFIG: Item<Config> = Item::new("conf");
-
 pub const LOCK_BOX_SEQ: Item<Uint64> = Item::new("lockbox_seq");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -28,7 +21,7 @@ pub struct Lockbox {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Claim{
-    pub addr: String,
+    pub addr: Addr,
     pub amount: Uint128,
 }
 
