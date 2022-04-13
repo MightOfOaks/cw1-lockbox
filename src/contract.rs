@@ -75,20 +75,26 @@ pub fn execute_reset_lockbox(
     }
     payback_amount = payback_amount.sub(lockbox.total_amount);
     //Pay back the amount to the owner
-    let msg: CosmosMsg = match(lockbox.cw20_addr, lockbox.native_denom){
-        (Some(_), Some(_)) => Err(ContractError::Unauthorized {}),
-        (None, None) => Err(ContractError::Unauthorized {}),
-        (Some(cw20_addr), None) => {
-            let message = Cw20ExecuteMsg::Transfer { recipient: lockbox.owner.to_string(), amount: payback_amount };
-            Cw20Contract(cw20_addr).call(message).map_err(ContractError::Std)
-        },
-        (None, Some(native)) => {
-            let message = BankMsg::Send { to_address: lockbox.owner.to_string(), amount: vec![Coin{ denom: native, amount: payback_amount }] };
-            Ok(CosmosMsg::Bank(message))
-        }
-    }?;
-    let res = Response::new().add_message(msg);
-    Ok(res)
+    if payback_amount != Uint128::zero() {
+        let msg: CosmosMsg = match (lockbox.cw20_addr, lockbox.native_denom) {
+            (Some(_), Some(_)) => Err(ContractError::Unauthorized {}),
+            (None, None) => Err(ContractError::Unauthorized {}),
+            (Some(cw20_addr), None) => {
+                let message = Cw20ExecuteMsg::Transfer { recipient: lockbox.owner.to_string(), amount: payback_amount };
+                Cw20Contract(cw20_addr).call(message).map_err(ContractError::Std)
+            },
+            (None, Some(native)) => {
+                let message = BankMsg::Send { to_address: lockbox.owner.to_string(), amount: vec![Coin { denom: native, amount: payback_amount }] };
+                Ok(CosmosMsg::Bank(message))
+            }
+        }?;
+        let res = Response::new().add_message(msg);
+        Ok(res)
+    } else{
+        Ok(Response::new()
+            .add_attribute("method", "reset"))
+    }
+
 }
 
 
