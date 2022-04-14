@@ -237,7 +237,7 @@ pub fn execute_claim(
     info: MessageInfo,
     id: Uint64,
 ) -> Result<Response, ContractError> {
-    let lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
     if lockbox.reset {
         return Err(ContractError::LockBoxReset {});
     }
@@ -279,7 +279,14 @@ pub fn execute_claim(
         }
     }?;
 
-    claim.claimed = true;
+    let mut claimIndex = lockbox.claims
+        .into_iter()
+        .position(|c| c.addr == info.sender.to_string())
+        .ok_or(ContractError::Unauthorized {})?;
+    if claim.claimed {
+        return Err(ContractError::AlreadyClaimed {});
+    }
+    lockbox.claims[claimIndex].claimed = true;
     LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
     let res = Response::new().add_message(msg);
     Ok(res)
