@@ -29,7 +29,10 @@ pub enum ContractError {
     DenomNotSupported {},
 
     #[error("The deposited amount does not cover the claims")]
-    DepositClaimImbalance {}
+    DepositClaimImbalance {},
+
+    #[error("Already claimed")]
+    AlreadyClaimed {},
 
     //#[error("Denom not supported:{0}, please send {1}")]
     //DenomNotSupported {sent: String, need: String},

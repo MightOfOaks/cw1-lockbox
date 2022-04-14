@@ -249,10 +249,15 @@ pub fn execute_claim(
     if lockbox.total_amount != Uint128::zero() {
         return Err(ContractError::DepositClaimImbalance {});
     }
-    let claim = lockbox.claims
+    let mut claim = lockbox.claims
         .into_iter()
         .find(|c| c.addr == info.sender.to_string())
         .ok_or(ContractError::Unauthorized {})?;
+    if claim.claimed {
+        return Err(ContractError::AlreadyClaimed {});
+    } else {
+        claim.claimed = true;
+    }
 
     let msg: CosmosMsg = match(lockbox.cw20_addr, lockbox.native_denom){
         (Some(_), Some(_)) => Err(ContractError::Unauthorized {}),
