@@ -247,11 +247,11 @@ pub fn execute_claim(
     if lockbox.total_amount != Uint128::zero() {
         return Err(ContractError::DepositClaimImbalance {});
     }
-    let mut claim = lockbox.claims
+    let claimIndex = lockbox.claims
         .into_iter()
-        .find(|c| c.addr == info.sender.to_string())
+        .position(|c| c.addr == info.sender.to_string())
         .ok_or(ContractError::Unauthorized {})?;
-    if claim.claimed {
+    if lockbox.claims[claimIndex].claimed {
         return Err(ContractError::AlreadyClaimed {});
     }
 
@@ -278,11 +278,6 @@ pub fn execute_claim(
             Ok(CosmosMsg::Bank(message))
         }
     }?;
-
-    let claimIndex = lockbox.claims
-        .into_iter()
-        .position(|c| c.addr == info.sender.to_string())
-        .ok_or(ContractError::Unauthorized {})?;
     lockbox.claims[claimIndex].claimed = true;
     LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
     let res = Response::new().add_message(msg);
