@@ -247,7 +247,7 @@ pub fn execute_claim(
     if lockbox.total_amount != Uint128::zero() {
         return Err(ContractError::DepositClaimImbalance {});
     }
-    let claimIndex = lockbox.claims
+    let claimIndex = lockbox.clone().claims
         .into_iter()
         .position(|c| c.addr == info.sender.to_string())
         .ok_or(ContractError::Unauthorized {})?;
@@ -255,7 +255,7 @@ pub fn execute_claim(
         return Err(ContractError::AlreadyClaimed {});
     }
 
-    let msg: CosmosMsg = match (lockbox.cw20_addr, lockbox.native_denom) {
+    let msg: CosmosMsg = match (lockbox.clone().cw20_addr, lockbox.clone().native_denom) {
         (Some(_), Some(_)) => Err(ContractError::Unauthorized {}),
         (None, None) => Err(ContractError::Unauthorized {}),
         (Some(cw20_addr), None) => {
@@ -266,15 +266,15 @@ pub fn execute_claim(
             }
             */
 
-            let message = Cw20ExecuteMsg::Transfer { recipient: claim.addr.to_string(), amount: claim.amount };
+            let message = Cw20ExecuteMsg::Transfer { recipient: lockbox.claims[claimIndex].addr.to_string(), amount: lockbox.claims[claimIndex].amount };
             Cw20Contract(cw20_addr).call(message).map_err(ContractError::Std)
         }
         (None, Some(native)) => {
             let balance = deps.querier.query_balance(env.contract.address, native.clone())?;
-            if balance.amount < claim.amount {
+            if balance.amount < lockbox.claims[claimIndex].amount {
                 return Err(ContractError::InsufficientFunds {});
             }
-            let message = BankMsg::Send { to_address: claim.addr.to_string(), amount: vec![Coin { denom: native, amount: claim.amount }] };
+            let message = BankMsg::Send { to_address: lockbox.claims[claimIndex].addr.to_string(), amount: vec![Coin { denom: native, amount: lockbox.claims[claimIndex].amount }] };
             Ok(CosmosMsg::Bank(message))
         }
     }?;
