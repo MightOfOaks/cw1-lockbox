@@ -279,13 +279,10 @@ pub fn execute_claim(
         }
     }?;
 
-    let mut claimIndex = lockbox.claims
+    let claimIndex = lockbox.claims
         .into_iter()
         .position(|c| c.addr == info.sender.to_string())
         .ok_or(ContractError::Unauthorized {})?;
-    if claim.claimed {
-        return Err(ContractError::AlreadyClaimed {});
-    }
     lockbox.claims[claimIndex].claimed = true;
     LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
     let res = Response::new().add_message(msg);
