@@ -165,7 +165,7 @@ pub fn execute_deposit_native(
         return Err(ContractError::LockBoxReset {});
     }
 
-    let denom = lockbox.clone().native_denom.ok_or(ContractError::NativeTokensRequired {})?;
+    let denom = lockbox.clone().native_denom.ok_or(ContractError::CW20TokensRequired {})?;
 
     let coin: &Coin = info.funds
         .iter()

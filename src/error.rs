@@ -16,8 +16,8 @@ pub enum ContractError {
     #[error("LockBox not expired")]
     LockBoxNotExpired {},
 
-    #[error("Native tokens required")]
-    NativeTokensRequired {},
+    #[error("CW20 tokens required")]
+    CW20TokensRequired {},
 
     #[error("Insufficient Funds")]
     InsufficientFunds {},
