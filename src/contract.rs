@@ -24,7 +24,7 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    LOCK_BOX_SEQ.save(deps.storage,&Uint64::zero())?;
+    LOCK_BOX_SEQ.save(deps.storage, &Uint64::zero())?;
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender))
@@ -45,21 +45,22 @@ pub fn execute(
             native_token,
             cw20_addr
         } => execute_create_lockbox(deps, _env, info, owner, rawclaims, expiration, native_token, cw20_addr),
-        ExecuteMsg::Reset {id} => execute_reset_lockbox(deps, _env, id),
+        ExecuteMsg::Reset { id } => execute_reset_lockbox(deps, _env, id),
         ExecuteMsg::Deposit { id } => execute_deposit_native(deps, _env, info, id),
         //This accepts a properly-encoded ReceiveMsg from a CW20 contract
-        ExecuteMsg::Receive(cw_20_receive_msg) => execute_receive(deps, _env, info,cw_20_receive_msg),
-        ExecuteMsg::Claim { id } => execute_claim(deps,_env,info,id),
+        ExecuteMsg::Receive(cw_20_receive_msg) => execute_receive(deps, _env, info, cw_20_receive_msg),
+        ExecuteMsg::Claim { id } => execute_claim(deps, _env, info, id),
     }
 }
+
 pub fn execute_reset_lockbox(
     deps: DepsMut,
     env: Env,
     id: Uint64,
 ) -> Result<Response, ContractError> {
     //Set lockbox reset to true
-    let mut lockbox = LOCKBOXES.load(deps.storage,id.u64())?;
-    if lockbox.expiration.is_triggered(&env.block){
+    let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    if lockbox.expiration.is_triggered(&env.block) {
         return Err(ContractError::LockBoxExpired {});
     }
     if lockbox.reset {
@@ -67,7 +68,7 @@ pub fn execute_reset_lockbox(
     }
 
     lockbox.reset = true;
-    LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
+    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
 
     //Giving back tokens to owner
     //Get the amount to pay back
@@ -85,7 +86,7 @@ pub fn execute_reset_lockbox(
             (Some(cw20_addr), None) => {
                 let message = Cw20ExecuteMsg::Transfer { recipient: lockbox.owner.to_string(), amount: payback_amount };
                 Cw20Contract(cw20_addr).call(message).map_err(ContractError::Std)
-            },
+            }
             (None, Some(native)) => {
                 let message = BankMsg::Send { to_address: lockbox.owner.to_string(), amount: vec![Coin { denom: native, amount: payback_amount }] };
                 Ok(CosmosMsg::Bank(message))
@@ -93,11 +94,10 @@ pub fn execute_reset_lockbox(
         }?;
         let res = Response::new().add_message(msg);
         Ok(res)
-    } else{
+    } else {
         Ok(Response::new()
             .add_attribute("method", "reset"))
     }
-
 }
 
 
@@ -109,32 +109,31 @@ pub fn execute_create_lockbox(
     rawclaims: Vec<RawClaim>,
     expiration: Scheduled,
     native_token: Option<String>,
-    cw20_addr: Option<String>
+    cw20_addr: Option<String>,
 ) -> Result<Response, ContractError> {
-
     let owner = deps.api.addr_validate(&owner)?;
     let cw20_address = match cw20_addr.clone() {
         Some(cw20_addr) => deps.api.addr_validate(&cw20_addr).ok(),
         _ => None,
     };
-    if expiration.is_triggered(&env.block){
+    if expiration.is_triggered(&env.block) {
         return Err(ContractError::LockBoxExpired {});
     }
 
-    match(native_token.clone(), cw20_addr.clone()){
+    match (native_token.clone(), cw20_addr.clone()) {
         (Some(_), Some(_)) => Err(ContractError::DenomNotSupported {}),
         (None, None) => Err(ContractError::DenomNotSupported {}),
-        (_,_) => Ok(())
+        (_, _) => Ok(())
     }?;
 
-    let mut claims: Vec<Claim>= vec![];
+    let mut claims: Vec<Claim> = vec![];
 
     for rawclaim in rawclaims {
         claims.push(
             Claim {
                 addr: deps.api.addr_validate(&rawclaim.addr)?,
                 amount: rawclaim.amount,
-                claimed: false
+                claimed: false,
             }
         )
     }
@@ -145,10 +144,10 @@ pub fn execute_create_lockbox(
     }*/
     let total_amount: Uint128 = claims.clone().into_iter().map(|c| c.amount).sum();
 
-    let id = LOCK_BOX_SEQ.update::<_, cosmwasm_std::StdError>(deps.storage, |id|{
+    let id = LOCK_BOX_SEQ.update::<_, cosmwasm_std::StdError>(deps.storage, |id| {
         Ok(id.add(Uint64::new(1)))
     })?;
-    let lockbox = Lockbox{
+    let lockbox = Lockbox {
         id,
         owner,
         claims,
@@ -158,8 +157,8 @@ pub fn execute_create_lockbox(
         native_denom: native_token,
         cw20_addr: cw20_address,
     };
-    LOCKBOXES.save(deps.storage,id.u64(),&lockbox)?;
-    Ok(Response::new().add_attribute("method","execute_create_lockbox"))
+    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
+    Ok(Response::new().add_attribute("method", "execute_create_lockbox"))
 }
 
 pub fn execute_deposit_native(
@@ -168,8 +167,8 @@ pub fn execute_deposit_native(
     info: MessageInfo,
     id: Uint64,
 ) -> Result<Response, ContractError> {
-    let mut lockbox = LOCKBOXES.load(deps.storage,id.u64())?;
-    if lockbox.expiration.is_triggered(&env.block){
+    let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    if lockbox.expiration.is_triggered(&env.block) {
         return Err(ContractError::LockBoxExpired {});
     }
     if lockbox.reset {
@@ -184,11 +183,11 @@ pub fn execute_deposit_native(
         .ok_or(ContractError::DenomNotSupported {})?;
 
     lockbox.total_amount = lockbox.total_amount.checked_sub(Uint128::new(u128::from(coin.amount))).unwrap();
-    LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
+    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
 
     Ok(Response::default()
-            .add_attribute("action","execute_deposit")
-            .add_attribute("amount", coin.amount.to_string()))
+        .add_attribute("action", "execute_deposit")
+        .add_attribute("amount", coin.amount.to_string()))
 }
 
 pub fn execute_receive(
@@ -197,11 +196,10 @@ pub fn execute_receive(
     info: MessageInfo,
     wrapper: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
-
     let msg: ReceiveMsg = from_slice(&wrapper.msg)?;
     let amount = wrapper.amount;
-    match msg{
-        ReceiveMsg::Deposit {id} => execute_deposit(deps, _env, info, id, amount),
+    match msg {
+        ReceiveMsg::Deposit { id } => execute_deposit(deps, _env, info, id, amount),
     }
 }
 
@@ -214,7 +212,7 @@ pub fn execute_deposit(
 ) -> Result<Response, ContractError> {
     let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
 
-    if lockbox.expiration.is_triggered(&_env.block){
+    if lockbox.expiration.is_triggered(&_env.block) {
         return Err(ContractError::LockBoxExpired {});
     }
     if lockbox.reset {
@@ -222,14 +220,14 @@ pub fn execute_deposit(
     }
 
     let cw20_addr = lockbox.clone().cw20_addr.ok_or(ContractError::DenomNotSupported {})?;
-    if info.sender != cw20_addr{
+    if info.sender != cw20_addr {
         return Err(ContractError::Unauthorized {});
     }
     lockbox.total_amount = lockbox.total_amount.checked_sub(Uint128::new(u128::from(amount))).unwrap();
-    LOCKBOXES.save(deps.storage,id.u64(), &lockbox)?;
+    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
 
     Ok(Response::default()
-        .add_attribute("action","execute_deposit")
+        .add_attribute("action", "execute_deposit")
         .add_attribute("amount", amount))
 }
 
@@ -239,12 +237,12 @@ pub fn execute_claim(
     info: MessageInfo,
     id: Uint64,
 ) -> Result<Response, ContractError> {
-    let lockbox= LOCKBOXES.load(deps.storage, id.u64())?;
+    let lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
     if lockbox.reset {
-        return Err(ContractError::LockBoxReset {})
+        return Err(ContractError::LockBoxReset {});
     }
-    if !lockbox.expiration.is_triggered(&env.block){
-        return Err(ContractError::LockBoxNotExpired {})
+    if !lockbox.expiration.is_triggered(&env.block) {
+        return Err(ContractError::LockBoxNotExpired {});
     }
     if lockbox.total_amount != Uint128::zero() {
         return Err(ContractError::DepositClaimImbalance {});
@@ -255,11 +253,9 @@ pub fn execute_claim(
         .ok_or(ContractError::Unauthorized {})?;
     if claim.claimed {
         return Err(ContractError::AlreadyClaimed {});
-    } else {
-        claim.claimed = true;
     }
 
-    let msg: CosmosMsg = match(lockbox.cw20_addr, lockbox.native_denom){
+    let msg: CosmosMsg = match (lockbox.cw20_addr, lockbox.native_denom) {
         (Some(_), Some(_)) => Err(ContractError::Unauthorized {}),
         (None, None) => Err(ContractError::Unauthorized {}),
         (Some(cw20_addr), None) => {
@@ -272,19 +268,21 @@ pub fn execute_claim(
 
             let message = Cw20ExecuteMsg::Transfer { recipient: claim.addr.to_string(), amount: claim.amount };
             Cw20Contract(cw20_addr).call(message).map_err(ContractError::Std)
-        },
+        }
         (None, Some(native)) => {
             let balance = deps.querier.query_balance(env.contract.address, native.clone())?;
-            if balance.amount < claim.amount{
-                return Err(ContractError::InsufficientFunds {})
+            if balance.amount < claim.amount {
+                return Err(ContractError::InsufficientFunds {});
             }
-            let message = BankMsg::Send { to_address: claim.addr.to_string(), amount: vec![Coin{ denom: native, amount: claim.amount }] };
+            let message = BankMsg::Send { to_address: claim.addr.to_string(), amount: vec![Coin { denom: native, amount: claim.amount }] };
             Ok(CosmosMsg::Bank(message))
         }
     }?;
 
+    claim.claimed = true;
+    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
     let res = Response::new().add_message(msg);
-   Ok(res)
+    Ok(res)
 }
 
 /*
@@ -322,6 +320,7 @@ fn query_lockbox(deps: Deps, id: Uint64) -> StdResult<LockBoxResponse> {
         cw20_addr: lockbox.cw20_addr,
     })
 }
+
 // settings for pagination
 const MAX_LIMIT: u32 = 30;
 const DEFAULT_LIMIT: u32 = 10;
@@ -329,16 +328,15 @@ const DEFAULT_LIMIT: u32 = 10;
 fn range_lockbox(deps: Deps,
                  start_after: Option<u64>,
                  limit: Option<u32>,
-                ) -> StdResult<LockBoxListResponse> {
-
+) -> StdResult<LockBoxListResponse> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = start_after.map(Bound::exclusive);
     let lockboxes: StdResult<Vec<_>> = LOCKBOXES
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit)
         .collect();
-    let res = LockBoxListResponse{
-        lockboxes: lockboxes?.into_iter().map(|l|l.1.into()).collect(),
+    let res = LockBoxListResponse {
+        lockboxes: lockboxes?.into_iter().map(|l| l.1.into()).collect(),
     };
     Ok(res)
 }
@@ -348,24 +346,24 @@ mod tests {
     use super::*;
     use cosmwasm_std::testing::{mock_dependencies, mock_dependencies_with_balance, mock_env, mock_info};
     use cosmwasm_std::{coins, from_binary};
-/*
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    /*
+        #[test]
+        fn proper_initialization() {
+            let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
 
-        let msg = InstantiateMsg { count: 17 };
-        let info = mock_info("creator", &coins(1000, "earth"));
+            let msg = InstantiateMsg { count: 17 };
+            let info = mock_info("creator", &coins(1000, "earth"));
 
-        // we can just call .unwrap() to assert this was a success
-        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
+            // we can just call .unwrap() to assert this was a success
+            let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+            assert_eq!(0, res.messages.len());
 
-        // it worked, let's query the state
-        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(17, value.count);
-    }
-*/
+            // it worked, let's query the state
+            let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
+            let value: CountResponse = from_binary(&res).unwrap();
+            assert_eq!(17, value.count);
+        }
+    */
     /*
     #[test]
     fn create_lockbox() {
@@ -414,32 +412,32 @@ mod tests {
     }
     */
 
-/*
-    #[test]
-    fn reset() {
-        let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    /*
+        #[test]
+        fn reset() {
+            let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
 
-        let msg = InstantiateMsg { count: 17 };
-        let info = mock_info("creator", &coins(2, "token"));
-        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+            let msg = InstantiateMsg { count: 17 };
+            let info = mock_info("creator", &coins(2, "token"));
+            let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        // beneficiary can release it
-        let unauth_info = mock_info("anyone", &coins(2, "token"));
-        let msg = ExecuteMsg::Reset { count: 5 };
-        let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
-        match res {
-            Err(ContractError::Unauthorized {}) => {}
-            _ => panic!("Must return unauthorized error"),
-        }
+            // beneficiary can release it
+            let unauth_info = mock_info("anyone", &coins(2, "token"));
+            let msg = ExecuteMsg::Reset { count: 5 };
+            let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
+            match res {
+                Err(ContractError::Unauthorized {}) => {}
+                _ => panic!("Must return unauthorized error"),
+            }
 
-        // only the original creator can reset the counter
-        let auth_info = mock_info("creator", &coins(2, "token"));
-        let msg = ExecuteMsg::Reset { count: 5 };
-        let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
+            // only the original creator can reset the counter
+            let auth_info = mock_info("creator", &coins(2, "token"));
+            let msg = ExecuteMsg::Reset { count: 5 };
+            let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
 
-        // should now be 5
-        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(5, value.count);
-    }*/
+            // should now be 5
+            let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
+            let value: CountResponse = from_binary(&res).unwrap();
+            assert_eq!(5, value.count);
+        }*/
 }
