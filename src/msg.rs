@@ -3,7 +3,7 @@ use cw20::Cw20ReceiveMsg;
 use cw_utils::{Scheduled};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::state::{Claim, Lockbox};
+use crate::state::{Claim, Lockbox, RawClaim};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -14,7 +14,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     CreateLockbox {
         owner: String,
-        claims: Vec<Claim>,
+        rawclaims: Vec<RawClaim>,
         expiration: Scheduled,
         native_token: Option<String>,
         cw20_addr: Option<String>

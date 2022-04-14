@@ -23,6 +23,13 @@ pub struct Lockbox {
 pub struct Claim{
     pub addr: Addr,
     pub amount: Uint128,
+    pub claimed: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct RawClaim{
+    pub addr: String,
+    pub amount: Uint128,
 }
 
 pub const LOCKBOXES: Map<u64,Lockbox> = Map::new("lockboxes");

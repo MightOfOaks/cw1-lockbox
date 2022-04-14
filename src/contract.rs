@@ -9,7 +9,7 @@ use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
 use crate::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg, LockBoxListResponse, ReceiveMsg};
-use crate::state::{Claim, LOCK_BOX_SEQ, Lockbox, LOCKBOXES};
+use crate::state::{Claim, LOCK_BOX_SEQ, Lockbox, LOCKBOXES, RawClaim};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw1-lockbox";
@@ -40,11 +40,11 @@ pub fn execute(
     match msg {
         ExecuteMsg::CreateLockbox {
             owner,
-            claims,
+            rawclaims,
             expiration,
             native_token,
             cw20_addr
-        } => execute_create_lockbox(deps, _env, info, owner, claims, expiration, native_token, cw20_addr),
+        } => execute_create_lockbox(deps, _env, info, owner, rawclaims, expiration, native_token, cw20_addr),
         ExecuteMsg::Reset {id} => execute_reset_lockbox(deps, _env, id),
         ExecuteMsg::Deposit { id } => execute_deposit_native(deps, _env, info, id),
         //This accepts a properly-encoded ReceiveMsg from a CW20 contract
@@ -106,7 +106,7 @@ pub fn execute_create_lockbox(
     env: Env,
     _info: MessageInfo,
     owner: String,
-    claims: Vec<Claim>,
+    rawclaims: Vec<RawClaim>,
     expiration: Scheduled,
     native_token: Option<String>,
     cw20_addr: Option<String>
@@ -121,12 +121,23 @@ pub fn execute_create_lockbox(
         return Err(ContractError::LockBoxExpired {});
     }
 
-
     match(native_token.clone(), cw20_addr.clone()){
         (Some(_), Some(_)) => Err(ContractError::DenomNotSupported {}),
         (None, None) => Err(ContractError::DenomNotSupported {}),
         (_,_) => Ok(())
     }?;
+
+    let mut claims: Vec<Claim>= vec![];
+
+    for rawclaim in rawclaims {
+        claims.push(
+            Claim {
+                addr: deps.api.addr_validate(&rawclaim.addr)?,
+                amount: rawclaim.amount,
+                claimed: false
+            }
+        )
+    }
     /*
     let mut total_amount = Uint128::zero();
     for c in claims {
