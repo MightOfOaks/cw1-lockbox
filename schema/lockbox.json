@@ -58,7 +58,8 @@
       "type": "object",
       "required": [
         "addr",
-        "amount"
+        "amount",
+        "claimed"
       ],
       "properties": {
         "addr": {
@@ -66,6 +67,9 @@
         },
         "amount": {
           "$ref": "#/definitions/Uint128"
+        },
+        "claimed": {
+          "type": "boolean"
         }
       }
     },

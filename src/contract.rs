@@ -9,7 +9,7 @@ use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
 use crate::msg::{LockBoxResponse, ExecuteMsg, InstantiateMsg, QueryMsg, LockBoxListResponse, ReceiveMsg};
-use crate::state::{Claim, LOCK_BOX_SEQ, Lockbox, LOCKBOXES, RawClaim};
+use crate::state::{Claim, LOCKBOX_SEQ, Lockbox, CONFIG, RawClaim};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw1-lockbox";
@@ -24,7 +24,7 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    LOCK_BOX_SEQ.save(deps.storage, &Uint64::zero())?;
+    LOCKBOX_SEQ.save(deps.storage, &Uint64::zero())?;
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner", info.sender))
@@ -40,11 +40,11 @@ pub fn execute(
     match msg {
         ExecuteMsg::CreateLockbox {
             owner,
-            rawclaims,
+            raw_claims,
             expiration,
             native_token,
             cw20_addr
-        } => execute_create_lockbox(deps, _env, info, owner, rawclaims, expiration, native_token, cw20_addr),
+        } => execute_create_lockbox(deps, _env, info, owner, raw_claims, expiration, native_token, cw20_addr),
         ExecuteMsg::Reset { id } => execute_reset_lockbox(deps, _env, id),
         ExecuteMsg::Deposit { id } => execute_deposit_native(deps, _env, info, id),
         //This accepts a properly-encoded ReceiveMsg from a CW20 contract
@@ -59,7 +59,7 @@ pub fn execute_reset_lockbox(
     id: Uint64,
 ) -> Result<Response, ContractError> {
     //Set lockbox reset to true
-    let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    let mut lockbox = CONFIG.load(deps.storage, id.u64())?;
     if lockbox.expiration.is_triggered(&env.block) {
         return Err(ContractError::LockBoxExpired {});
     }
@@ -68,7 +68,7 @@ pub fn execute_reset_lockbox(
     }
 
     lockbox.reset = true;
-    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
+    CONFIG.save(deps.storage, id.u64(), &lockbox)?;
 
     //Giving back tokens to owner
     //Get the amount to pay back
@@ -106,7 +106,7 @@ pub fn execute_create_lockbox(
     env: Env,
     _info: MessageInfo,
     owner: String,
-    rawclaims: Vec<RawClaim>,
+    raw_claims: Vec<RawClaim>,
     expiration: Scheduled,
     native_token: Option<String>,
     cw20_addr: Option<String>,
@@ -128,11 +128,11 @@ pub fn execute_create_lockbox(
 
     let mut claims: Vec<Claim> = vec![];
 
-    for rawclaim in rawclaims {
+    for raw_claim in raw_claims {
         claims.push(
             Claim {
-                addr: deps.api.addr_validate(&rawclaim.addr)?,
-                amount: rawclaim.amount,
+                addr: deps.api.addr_validate(&raw_claim.addr)?,
+                amount: raw_claim.amount,
                 claimed: false,
             }
         )
@@ -144,7 +144,7 @@ pub fn execute_create_lockbox(
     }*/
     let total_amount: Uint128 = claims.clone().into_iter().map(|c| c.amount).sum();
 
-    let id = LOCK_BOX_SEQ.update::<_, cosmwasm_std::StdError>(deps.storage, |id| {
+    let id = LOCKBOX_SEQ.update::<_, cosmwasm_std::StdError>(deps.storage, |id| {
         Ok(id.add(Uint64::new(1)))
     })?;
     let lockbox = Lockbox {
@@ -157,7 +157,7 @@ pub fn execute_create_lockbox(
         native_denom: native_token,
         cw20_addr: cw20_address,
     };
-    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
+    CONFIG.save(deps.storage, id.u64(), &lockbox)?;
     Ok(Response::new().add_attribute("method", "execute_create_lockbox"))
 }
 
@@ -167,7 +167,7 @@ pub fn execute_deposit_native(
     info: MessageInfo,
     id: Uint64,
 ) -> Result<Response, ContractError> {
-    let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    let mut lockbox = CONFIG.load(deps.storage, id.u64())?;
     if lockbox.expiration.is_triggered(&env.block) {
         return Err(ContractError::LockBoxExpired {});
     }
@@ -183,7 +183,7 @@ pub fn execute_deposit_native(
         .ok_or(ContractError::DenomNotSupported {})?;
 
     lockbox.total_amount = lockbox.total_amount.checked_sub(Uint128::new(u128::from(coin.amount))).unwrap();
-    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
+    CONFIG.save(deps.storage, id.u64(), &lockbox)?;
 
     Ok(Response::default()
         .add_attribute("action", "execute_deposit")
@@ -210,7 +210,7 @@ pub fn execute_deposit(
     id: Uint64,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
-    let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    let mut lockbox = CONFIG.load(deps.storage, id.u64())?;
 
     if lockbox.expiration.is_triggered(&_env.block) {
         return Err(ContractError::LockBoxExpired {});
@@ -224,7 +224,7 @@ pub fn execute_deposit(
         return Err(ContractError::Unauthorized {});
     }
     lockbox.total_amount = lockbox.total_amount.checked_sub(Uint128::new(u128::from(amount))).unwrap();
-    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
+    CONFIG.save(deps.storage, id.u64(), &lockbox)?;
 
     Ok(Response::default()
         .add_attribute("action", "execute_deposit")
@@ -237,7 +237,7 @@ pub fn execute_claim(
     info: MessageInfo,
     id: Uint64,
 ) -> Result<Response, ContractError> {
-    let mut lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    let mut lockbox = CONFIG.load(deps.storage, id.u64())?;
     if lockbox.reset {
         return Err(ContractError::LockBoxReset {});
     }
@@ -247,11 +247,11 @@ pub fn execute_claim(
     if lockbox.total_amount != Uint128::zero() {
         return Err(ContractError::DepositClaimImbalance {});
     }
-    let claimIndex = lockbox.clone().claims
+    let claim_index = lockbox.clone().claims
         .into_iter()
         .position(|c| c.addr == info.sender.to_string())
         .ok_or(ContractError::Unauthorized {})?;
-    if lockbox.claims[claimIndex].claimed {
+    if lockbox.claims[claim_index].claimed {
         return Err(ContractError::AlreadyClaimed {});
     }
 
@@ -266,20 +266,20 @@ pub fn execute_claim(
             }
             */
 
-            let message = Cw20ExecuteMsg::Transfer { recipient: lockbox.claims[claimIndex].addr.to_string(), amount: lockbox.claims[claimIndex].amount };
+            let message = Cw20ExecuteMsg::Transfer { recipient: lockbox.claims[claim_index].addr.to_string(), amount: lockbox.claims[claim_index].amount };
             Cw20Contract(cw20_addr).call(message).map_err(ContractError::Std)
         }
         (None, Some(native)) => {
             let balance = deps.querier.query_balance(env.contract.address, native.clone())?;
-            if balance.amount < lockbox.claims[claimIndex].amount {
+            if balance.amount < lockbox.claims[claim_index].amount {
                 return Err(ContractError::InsufficientFunds {});
             }
-            let message = BankMsg::Send { to_address: lockbox.claims[claimIndex].addr.to_string(), amount: vec![Coin { denom: native, amount: lockbox.claims[claimIndex].amount }] };
+            let message = BankMsg::Send { to_address: lockbox.claims[claim_index].addr.to_string(), amount: vec![Coin { denom: native, amount: lockbox.claims[claim_index].amount }] };
             Ok(CosmosMsg::Bank(message))
         }
     }?;
-    lockbox.claims[claimIndex].claimed = true;
-    LOCKBOXES.save(deps.storage, id.u64(), &lockbox)?;
+    lockbox.claims[claim_index].claimed = true;
+    CONFIG.save(deps.storage, id.u64(), &lockbox)?;
     let res = Response::new().add_message(msg);
     Ok(res)
 }
@@ -307,7 +307,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_lockbox(deps: Deps, id: Uint64) -> StdResult<LockBoxResponse> {
-    let lockbox = LOCKBOXES.load(deps.storage, id.u64())?;
+    let lockbox = CONFIG.load(deps.storage, id.u64())?;
     Ok(LockBoxResponse {
         id: lockbox.id,
         owner: lockbox.owner,
@@ -330,7 +330,7 @@ fn range_lockbox(deps: Deps,
 ) -> StdResult<LockBoxListResponse> {
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
     let start = start_after.map(Bound::exclusive);
-    let lockboxes: StdResult<Vec<_>> = LOCKBOXES
+    let lockboxes: StdResult<Vec<_>> = CONFIG
         .range(deps.storage, start, None, Order::Ascending)
         .take(limit)
         .collect();

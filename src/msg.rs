@@ -14,7 +14,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     CreateLockbox {
         owner: String,
-        rawclaims: Vec<RawClaim>,
+        raw_claims: Vec<RawClaim>,
         expiration: Scheduled,
         native_token: Option<String>,
         cw20_addr: Option<String>

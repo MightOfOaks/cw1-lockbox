@@ -11,17 +11,11 @@
         "create_lockbox": {
           "type": "object",
           "required": [
-            "claims",
             "expiration",
-            "owner"
+            "owner",
+            "rawclaims"
           ],
           "properties": {
-            "claims": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Claim"
-              }
-            },
             "cw20_addr": {
               "type": [
                 "string",
@@ -39,6 +33,12 @@
             },
             "owner": {
               "type": "string"
+            },
+            "rawclaims": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/RawClaim"
+              }
             }
           }
         }
@@ -119,28 +119,9 @@
     }
   ],
   "definitions": {
-    "Addr": {
-      "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
-      "type": "string"
-    },
     "Binary": {
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
       "type": "string"
-    },
-    "Claim": {
-      "type": "object",
-      "required": [
-        "addr",
-        "amount"
-      ],
-      "properties": {
-        "addr": {
-          "$ref": "#/definitions/Addr"
-        },
-        "amount": {
-          "$ref": "#/definitions/Uint128"
-        }
-      }
     },
     "Cw20ReceiveMsg": {
       "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg",
@@ -159,6 +140,21 @@
         },
         "sender": {
           "type": "string"
+        }
+      }
+    },
+    "RawClaim": {
+      "type": "object",
+      "required": [
+        "addr",
+        "amount"
+      ],
+      "properties": {
+        "addr": {
+          "type": "string"
+        },
+        "amount": {
+          "$ref": "#/definitions/Uint128"
         }
       }
     },
